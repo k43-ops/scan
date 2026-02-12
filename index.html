@@ -1,123 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mobile POS Scanner</title>
+    <title>Full Screen POS Scanner</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <style>
         body {
-            font-family: Arial;
-            background: #f4f6f9;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* FULLSCREEN CAMERA */
+        #reader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* DARK OVERLAY PANEL */
+        #controlPanel {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.8);
+            color: white;
             padding: 15px;
+            z-index: 2;
             text-align: center;
         }
 
-        #reader {
-            width: 100%;
-            max-width: 350px;
-            margin: auto;
-        }
-
-        table {
-            width: 100%;
-            margin-top: 15px;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        th, td {
-            padding: 8px;
-            border: 1px solid #ddd;
-        }
-
-        th {
-            background: #2d89ef;
-            color: white;
-        }
-
         button {
-            padding: 8px 12px;
+            padding: 8px 14px;
             margin: 5px;
+            border: none;
             background: #2d89ef;
             color: white;
-            border: none;
-            cursor: pointer;
+            font-size: 14px;
         }
 
-        input {
-            padding: 6px;
-            margin: 5px;
-            width: 120px;
-        }
-
-        #totalBox {
-            font-size: 18px;
-            margin-top: 10px;
+        #total {
             font-weight: bold;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
 
-<h2>📦 Mobile POS Scanner</h2>
-
 <div id="reader"></div>
 
-<button onclick="mode='addProduct'">📥 Scan to Add Product</button>
-<button onclick="mode='sell'">🛒 Scan to Sell</button>
-
-<h3>Products List</h3>
-<table>
-    <thead>
-        <tr>
-            <th>Barcode</th>
-            <th>Name</th>
-            <th>Price</th>
-        </tr>
-    </thead>
-    <tbody id="productList"></tbody>
-</table>
-
-<h3>Sales</h3>
-<table>
-    <thead>
-        <tr>
-            <th>Product</th>
-            <th>Price</th>
-        </tr>
-    </thead>
-    <tbody id="salesList"></tbody>
-</table>
-
-<div id="totalBox">
-    Total: ₱<span id="total">0.00</span>
+<div id="controlPanel">
+    <button onclick="mode='addProduct'">📥 Add Product</button>
+    <button onclick="mode='sell'">🛒 Sell</button>
+    <div>Total: ₱<span id="total">0.00</span></div>
 </div>
-
-<button onclick="clearSales()">Clear Sales</button>
 
 <script>
 let inventory = JSON.parse(localStorage.getItem("inventory")) || {};
 let total = 0;
-let mode = "sell"; // default mode
+let mode = "sell";
 
-// Display products
-function displayProducts() {
-    const table = document.getElementById("productList");
-    table.innerHTML = "";
-
-    for (let barcode in inventory) {
-        let row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${barcode}</td>
-            <td>${inventory[barcode].name}</td>
-            <td>₱${inventory[barcode].price.toFixed(2)}</td>
-        `;
-        table.appendChild(row);
-    }
-}
-
-// Add product after scan
+// Add Product
 function addProduct(barcode) {
     if (inventory[barcode]) {
         alert("Product already exists!");
@@ -135,39 +82,21 @@ function addProduct(barcode) {
     };
 
     localStorage.setItem("inventory", JSON.stringify(inventory));
-    displayProducts();
-    alert("Product Added Successfully!");
+    alert("Product Added!");
 }
 
-// Sell product
+// Sell Product
 function addSale(barcode) {
     if (!inventory[barcode]) {
         alert("Product not found!");
         return;
     }
 
-    let product = inventory[barcode];
-
-    let row = document.createElement("tr");
-    row.innerHTML = `
-        <td>${product.name}</td>
-        <td>₱${product.price.toFixed(2)}</td>
-    `;
-
-    document.getElementById("salesList").appendChild(row);
-
-    total += product.price;
+    total += inventory[barcode].price;
     document.getElementById("total").innerText = total.toFixed(2);
 }
 
-// Clear sales
-function clearSales() {
-    document.getElementById("salesList").innerHTML = "";
-    total = 0;
-    document.getElementById("total").innerText = "0.00";
-}
-
-// Start scanner
+// Start Fullscreen Scanner
 function startScanner() {
 
     const html5QrCode = new Html5Qrcode("reader");
@@ -179,7 +108,8 @@ function startScanner() {
                 devices[0].id,
                 {
                     fps: 10,
-                    qrbox: 250,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.7778,
                     formatsToSupport: [
                         Html5QrcodeSupportedFormats.EAN_13,
                         Html5QrcodeSupportedFormats.UPC_A,
@@ -201,10 +131,7 @@ function startScanner() {
     });
 }
 
-window.onload = function() {
-    displayProducts();
-    startScanner();
-};
+window.onload = startScanner;
 
 </script>
 
