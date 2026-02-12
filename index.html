@@ -8,14 +8,9 @@
     <style>
         body {
             font-family: Arial;
-            margin: 0;
+            background: #f4f6f9;
             padding: 15px;
             text-align: center;
-            background: #f4f6f9;
-        }
-
-        h2 {
-            margin-top: 5px;
         }
 
         #reader {
@@ -41,45 +36,50 @@
             color: white;
         }
 
+        button {
+            padding: 8px 12px;
+            margin: 5px;
+            background: #2d89ef;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
         input {
             padding: 6px;
             margin: 5px;
             width: 120px;
         }
 
-        button {
-            padding: 6px 12px;
-            margin: 5px;
-            border: none;
-            background: #2d89ef;
-            color: white;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #1b5fbf;
-        }
-
         #totalBox {
-            margin-top: 15px;
-            font-size: 20px;
+            font-size: 18px;
+            margin-top: 10px;
             font-weight: bold;
         }
     </style>
 </head>
-
 <body>
 
-<h2>📦 Mobile POS Barcode Scanner</h2>
+<h2>📦 Mobile POS Scanner</h2>
 
 <div id="reader"></div>
 
-<h3>Add New Product</h3>
-<input type="text" id="pName" placeholder="Product Name">
-<input type="number" id="pPrice" placeholder="Price">
-<button onclick="saveProduct()">Save Product</button>
+<button onclick="mode='addProduct'">📥 Scan to Add Product</button>
+<button onclick="mode='sell'">🛒 Scan to Sell</button>
 
-<h3>🛒 Sales</h3>
+<h3>Products List</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Barcode</th>
+            <th>Name</th>
+            <th>Price</th>
+        </tr>
+    </thead>
+    <tbody id="productList"></tbody>
+</table>
+
+<h3>Sales</h3>
 <table>
     <thead>
         <tr>
@@ -99,23 +99,35 @@
 <script>
 let inventory = JSON.parse(localStorage.getItem("inventory")) || {};
 let total = 0;
+let mode = "sell"; // default mode
 
-// Save product to inventory
-function saveProduct() {
-    let barcode = prompt("Scan the product barcode now.");
+// Display products
+function displayProducts() {
+    const table = document.getElementById("productList");
+    table.innerHTML = "";
 
-    if (!barcode) {
-        alert("No barcode entered.");
+    for (let barcode in inventory) {
+        let row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${barcode}</td>
+            <td>${inventory[barcode].name}</td>
+            <td>₱${inventory[barcode].price.toFixed(2)}</td>
+        `;
+        table.appendChild(row);
+    }
+}
+
+// Add product after scan
+function addProduct(barcode) {
+    if (inventory[barcode]) {
+        alert("Product already exists!");
         return;
     }
 
-    let name = document.getElementById("pName").value;
-    let price = document.getElementById("pPrice").value;
+    let name = prompt("Enter Product Name:");
+    let price = prompt("Enter Product Price:");
 
-    if (!name || !price) {
-        alert("Enter product name and price.");
-        return;
-    }
+    if (!name || !price) return;
 
     inventory[barcode] = {
         name: name,
@@ -123,28 +135,29 @@ function saveProduct() {
     };
 
     localStorage.setItem("inventory", JSON.stringify(inventory));
-    alert("Product Saved!");
+    displayProducts();
+    alert("Product Added Successfully!");
 }
 
-// Add sale
+// Sell product
 function addSale(barcode) {
-    if (inventory[barcode]) {
-        let product = inventory[barcode];
-
-        let row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${product.name}</td>
-            <td>₱${product.price.toFixed(2)}</td>
-        `;
-
-        document.getElementById("salesList").appendChild(row);
-
-        total += product.price;
-        document.getElementById("total").innerText = total.toFixed(2);
-
-    } else {
-        alert("Product not found. Please add it first.");
+    if (!inventory[barcode]) {
+        alert("Product not found!");
+        return;
     }
+
+    let product = inventory[barcode];
+
+    let row = document.createElement("tr");
+    row.innerHTML = `
+        <td>${product.name}</td>
+        <td>₱${product.price.toFixed(2)}</td>
+    `;
+
+    document.getElementById("salesList").appendChild(row);
+
+    total += product.price;
+    document.getElementById("total").innerText = total.toFixed(2);
 }
 
 // Clear sales
@@ -154,18 +167,16 @@ function clearSales() {
     document.getElementById("total").innerText = "0.00";
 }
 
-// AUTO OPEN CAMERA ON LOAD
+// Start scanner
 function startScanner() {
 
     const html5QrCode = new Html5Qrcode("reader");
 
     Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-
-            let cameraId = devices[0].id;
+        if (devices.length) {
 
             html5QrCode.start(
-                cameraId,
+                devices[0].id,
                 {
                     fps: 10,
                     qrbox: 250,
@@ -177,17 +188,23 @@ function startScanner() {
                     ]
                 },
                 (decodedText) => {
-                    addSale(decodedText);
+
+                    if (mode === "addProduct") {
+                        addProduct(decodedText);
+                    } else {
+                        addSale(decodedText);
+                    }
+
                 }
             );
         }
-    }).catch(err => {
-        console.log(err);
     });
 }
 
-// Start automatically
-window.onload = startScanner;
+window.onload = function() {
+    displayProducts();
+    startScanner();
+};
 
 </script>
 
