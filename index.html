@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Fullscreen Barcode Scanner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Barcode Scanner</title>
 
 <style>
   html, body {
@@ -16,21 +15,9 @@
 
   video {
     position: fixed;
-    top: 0;
-    left: 0;
     width: 100vw;
     height: 100vh;
     object-fit: cover;
-  }
-
-  #overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: 4px solid rgba(0,255,0,0.5);
-    box-sizing: border-box;
   }
 
   #result {
@@ -41,10 +28,9 @@
     background: rgba(0,0,0,0.7);
     color: white;
     padding: 12px 20px;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 16px;
     max-width: 90%;
-    word-wrap: break-word;
   }
 </style>
 </head>
@@ -52,56 +38,79 @@
 <body>
 
 <video id="video" autoplay playsinline></video>
-<div id="overlay"></div>
-<div id="result">Point camera at barcode...</div>
+<div id="result">Starting camera...</div>
 
 <script>
 const video = document.getElementById('video');
 const result = document.getElementById('result');
 
+async function getBackCamera() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+  // Try to find back camera by label
+  let backCamera = videoDevices.find(device =>
+    device.label.toLowerCase().includes('back') ||
+    device.label.toLowerCase().includes('rear') ||
+    device.label.toLowerCase().includes('environment')
+  );
+
+  // If no label match, use last camera (usually back on phones)
+  if (!backCamera && videoDevices.length > 0) {
+    backCamera = videoDevices[videoDevices.length - 1];
+  }
+
+  return backCamera ? backCamera.deviceId : null;
+}
+
+async function startCamera() {
+  try {
+    // Ask permission first
+    await navigator.mediaDevices.getUserMedia({ video: true });
+
+    const backCameraId = await getBackCamera();
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        deviceId: backCameraId ? { exact: backCameraId } : undefined
+      }
+    });
+
+    video.srcObject = stream;
+    result.textContent = "Camera Ready";
+
+    startScanner();
+
+  } catch (error) {
+    result.textContent = "Camera access denied.";
+    console.error(error);
+  }
+}
+
 async function startScanner() {
   if (!('BarcodeDetector' in window)) {
-    result.textContent = "Barcode Detector not supported on this device.";
+    result.textContent = "Barcode Detector not supported.";
     return;
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" }
-  });
-
-  video.srcObject = stream;
-
-  const barcodeDetector = new BarcodeDetector({
-    formats: [
-      "qr_code",
-      "ean_13",
-      "ean_8",
-      "code_128",
-      "code_39",
-      "upc_a",
-      "upc_e"
-    ]
+  const detector = new BarcodeDetector({
+    formats: ["qr_code", "ean_13", "code_128", "upc_a"]
   });
 
   async function scan() {
     try {
-      const barcodes = await barcodeDetector.detect(video);
+      const barcodes = await detector.detect(video);
       if (barcodes.length > 0) {
         result.textContent = barcodes[0].rawValue;
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (e) {}
     requestAnimationFrame(scan);
   }
 
-  video.onloadedmetadata = () => {
-    video.play();
-    scan();
-  };
+  scan();
 }
 
-startScanner();
+startCamera();
 </script>
 
 </body>
