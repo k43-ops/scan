@@ -1,29 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mobile POS Barcode Scanner</title>
+    <title>Mobile POS Scanner</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <style>
         body {
             font-family: Arial;
-            text-align: center;
+            margin: 0;
             padding: 15px;
+            text-align: center;
+            background: #f4f6f9;
+        }
+
+        h2 {
+            margin-top: 5px;
         }
 
         #reader {
-            width: 300px;
+            width: 100%;
+            max-width: 350px;
             margin: auto;
         }
 
         table {
             width: 100%;
-            margin-top: 20px;
+            margin-top: 15px;
             border-collapse: collapse;
+            background: white;
         }
 
         th, td {
-            border: 1px solid #ddd;
             padding: 8px;
+            border: 1px solid #ddd;
         }
 
         th {
@@ -31,26 +41,42 @@
             color: white;
         }
 
-        button {
-            padding: 8px 15px;
+        input {
+            padding: 6px;
             margin: 5px;
+            width: 120px;
         }
 
-        input {
-            padding: 5px;
-            width: 120px;
+        button {
+            padding: 6px 12px;
+            margin: 5px;
+            border: none;
+            background: #2d89ef;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1b5fbf;
+        }
+
+        #totalBox {
+            margin-top: 15px;
+            font-size: 20px;
+            font-weight: bold;
         }
     </style>
 </head>
+
 <body>
 
-<h2>📦 Mobile POS Scanner</h2>
+<h2>📦 Mobile POS Barcode Scanner</h2>
 
 <div id="reader"></div>
 
-<h3>Add Product (First Time Only)</h3>
-<input type="text" id="productName" placeholder="Product Name">
-<input type="number" id="productPrice" placeholder="Price">
+<h3>Add New Product</h3>
+<input type="text" id="pName" placeholder="Product Name">
+<input type="number" id="pPrice" placeholder="Price">
 <button onclick="saveProduct()">Save Product</button>
 
 <h3>🛒 Sales</h3>
@@ -61,10 +87,12 @@
             <th>Price</th>
         </tr>
     </thead>
-    <tbody id="salesTable"></tbody>
+    <tbody id="salesList"></tbody>
 </table>
 
-<h3>Total: ₱<span id="total">0</span></h3>
+<div id="totalBox">
+    Total: ₱<span id="total">0.00</span>
+</div>
 
 <button onclick="clearSales()">Clear Sales</button>
 
@@ -72,14 +100,20 @@
 let inventory = JSON.parse(localStorage.getItem("inventory")) || {};
 let total = 0;
 
-// Save new product
+// Save product to inventory
 function saveProduct() {
-    const barcode = prompt("Scan or Enter Barcode Number:");
-    const name = document.getElementById("productName").value;
-    const price = document.getElementById("productPrice").value;
+    let barcode = prompt("Scan the product barcode now.");
 
-    if (!barcode || !name || !price) {
-        alert("Complete all fields!");
+    if (!barcode) {
+        alert("No barcode entered.");
+        return;
+    }
+
+    let name = document.getElementById("pName").value;
+    let price = document.getElementById("pPrice").value;
+
+    if (!name || !price) {
+        alert("Enter product name and price.");
         return;
     }
 
@@ -92,54 +126,70 @@ function saveProduct() {
     alert("Product Saved!");
 }
 
-// Add to sales
+// Add sale
 function addSale(barcode) {
     if (inventory[barcode]) {
-        const product = inventory[barcode];
+        let product = inventory[barcode];
 
-        const row = document.createElement("tr");
+        let row = document.createElement("tr");
         row.innerHTML = `
             <td>${product.name}</td>
-            <td>₱${product.price}</td>
+            <td>₱${product.price.toFixed(2)}</td>
         `;
-        document.getElementById("salesTable").appendChild(row);
+
+        document.getElementById("salesList").appendChild(row);
 
         total += product.price;
         document.getElementById("total").innerText = total.toFixed(2);
+
     } else {
-        alert("Product not found! Please add it first.");
+        alert("Product not found. Please add it first.");
     }
 }
 
 // Clear sales
 function clearSales() {
-    document.getElementById("salesTable").innerHTML = "";
+    document.getElementById("salesList").innerHTML = "";
     total = 0;
-    document.getElementById("total").innerText = "0";
+    document.getElementById("total").innerText = "0.00";
 }
 
-// Scanner
-function onScanSuccess(decodedText) {
-    addSale(decodedText);
+// AUTO OPEN CAMERA ON LOAD
+function startScanner() {
+
+    const html5QrCode = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+
+            let cameraId = devices[0].id;
+
+            html5QrCode.start(
+                cameraId,
+                {
+                    fps: 10,
+                    qrbox: 250,
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.QR_CODE
+                    ]
+                },
+                (decodedText) => {
+                    addSale(decodedText);
+                }
+            );
+        }
+    }).catch(err => {
+        console.log(err);
+    });
 }
 
-let html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    {
-        fps: 10,
-        qrbox: 250,
-        formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.QR_CODE
-        ]
-    }
-);
+// Start automatically
+window.onload = startScanner;
 
-html5QrcodeScanner.render(onScanSuccess);
 </script>
 
 </body>
 </html>
-
