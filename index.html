@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mobile Barcode Scanner</title>
+    <title>Mobile POS Barcode Scanner</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
             font-family: Arial;
             text-align: center;
-            padding: 20px;
+            padding: 15px;
         }
 
         #reader {
@@ -15,39 +15,131 @@
             margin: auto;
         }
 
-        #result {
+        table {
+            width: 100%;
             margin-top: 20px;
-            font-size: 20px;
-            font-weight: bold;
-            color: green;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background: #2d89ef;
+            color: white;
         }
 
         button {
-            padding: 10px 20px;
-            font-size: 16px;
+            padding: 8px 15px;
+            margin: 5px;
+        }
+
+        input {
+            padding: 5px;
+            width: 120px;
         }
     </style>
 </head>
-
 <body>
 
-<h2>📦 Product Barcode Scanner</h2>
+<h2>📦 Mobile POS Scanner</h2>
 
 <div id="reader"></div>
-<div id="result">Scan result will appear here</div>
+
+<h3>Add Product (First Time Only)</h3>
+<input type="text" id="productName" placeholder="Product Name">
+<input type="number" id="productPrice" placeholder="Price">
+<button onclick="saveProduct()">Save Product</button>
+
+<h3>🛒 Sales</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Price</th>
+        </tr>
+    </thead>
+    <tbody id="salesTable"></tbody>
+</table>
+
+<h3>Total: ₱<span id="total">0</span></h3>
+
+<button onclick="clearSales()">Clear Sales</button>
 
 <script>
-    function onScanSuccess(decodedText, decodedResult) {
-        document.getElementById("result").innerText = "Scanned: " + decodedText;
+let inventory = JSON.parse(localStorage.getItem("inventory")) || {};
+let total = 0;
+
+// Save new product
+function saveProduct() {
+    const barcode = prompt("Scan or Enter Barcode Number:");
+    const name = document.getElementById("productName").value;
+    const price = document.getElementById("productPrice").value;
+
+    if (!barcode || !name || !price) {
+        alert("Complete all fields!");
+        return;
     }
 
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: 250 }
-    );
+    inventory[barcode] = {
+        name: name,
+        price: parseFloat(price)
+    };
 
-    html5QrcodeScanner.render(onScanSuccess);
+    localStorage.setItem("inventory", JSON.stringify(inventory));
+    alert("Product Saved!");
+}
+
+// Add to sales
+function addSale(barcode) {
+    if (inventory[barcode]) {
+        const product = inventory[barcode];
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${product.name}</td>
+            <td>₱${product.price}</td>
+        `;
+        document.getElementById("salesTable").appendChild(row);
+
+        total += product.price;
+        document.getElementById("total").innerText = total.toFixed(2);
+    } else {
+        alert("Product not found! Please add it first.");
+    }
+}
+
+// Clear sales
+function clearSales() {
+    document.getElementById("salesTable").innerHTML = "";
+    total = 0;
+    document.getElementById("total").innerText = "0";
+}
+
+// Scanner
+function onScanSuccess(decodedText) {
+    addSale(decodedText);
+}
+
+let html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    {
+        fps: 10,
+        qrbox: 250,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ]
+    }
+);
+
+html5QrcodeScanner.render(onScanSuccess);
 </script>
 
 </body>
 </html>
+
